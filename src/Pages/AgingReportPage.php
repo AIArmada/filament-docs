@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace AIArmada\FilamentDocs\Pages;
 
-use AIArmada\Docs\Enums\DocStatus;
+use AIArmada\CommerceSupport\Support\FilamentPermission;
 use AIArmada\Docs\Models\Doc;
+use AIArmada\Docs\States\DocStatus;
+use AIArmada\Docs\States\Overdue;
+use AIArmada\Docs\States\PartiallyPaid;
+use AIArmada\Docs\States\Pending;
+use AIArmada\Docs\States\Sent;
+use AIArmada\FilamentDocs\FilamentDocsPlugin;
 use AIArmada\FilamentDocs\Resources\DocResource;
 use AIArmada\FilamentDocs\Support\DocsOwnerScope;
 use BackedEnum;
@@ -31,6 +37,16 @@ final class AgingReportPage extends Page implements HasTable
 
     protected string $view = 'filament-docs::pages.aging-report';
 
+    public static function canAccess(): bool
+    {
+        return FilamentPermission::hasAbility('purchase.viewAny');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     public function getTitle(): string
     {
         return 'Accounts Receivable Aging Report';
@@ -42,10 +58,10 @@ final class AgingReportPage extends Page implements HasTable
             ->query(
                 DocsOwnerScope::applyToDocs(Doc::query())
                     ->whereIn('status', [
-                        DocStatus::PENDING,
-                        DocStatus::SENT,
-                        DocStatus::PARTIALLY_PAID,
-                        DocStatus::OVERDUE,
+                        DocStatus::normalize(Pending::class),
+                        DocStatus::normalize(Sent::class),
+                        DocStatus::normalize(PartiallyPaid::class),
+                        DocStatus::normalize(Overdue::class),
                     ])
                     ->whereNotNull('due_date')
             )
@@ -136,7 +152,7 @@ final class AgingReportPage extends Page implements HasTable
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn ($state) => $state->color()),
+                    ->color(fn (DocStatus $state): string => $state->color()),
             ])
             ->filters([
                 SelectFilter::make('aging_bucket')
@@ -164,9 +180,7 @@ final class AgingReportPage extends Page implements HasTable
                     }),
 
                 SelectFilter::make('status')
-                    ->options(collect(DocStatus::cases())
-                        ->mapWithKeys(fn ($status) => [$status->value => $status->label()])
-                        ->all()),
+                    ->options(DocStatus::options()),
             ])
             ->defaultSort('due_date', 'asc')
             ->recordActions([
@@ -186,10 +200,10 @@ final class AgingReportPage extends Page implements HasTable
         $docs = DocsOwnerScope::applyToDocs(Doc::query())
             ->select(['id', 'due_date', 'total'])
             ->whereIn('status', [
-                DocStatus::PENDING,
-                DocStatus::SENT,
-                DocStatus::PARTIALLY_PAID,
-                DocStatus::OVERDUE,
+                DocStatus::normalize(Pending::class),
+                DocStatus::normalize(Sent::class),
+                DocStatus::normalize(PartiallyPaid::class),
+                DocStatus::normalize(Overdue::class),
             ])
             ->whereNotNull('due_date')
             ->get();
@@ -223,7 +237,7 @@ final class AgingReportPage extends Page implements HasTable
 
     public static function getNavigationGroup(): string | UnitEnum | null
     {
-        return config('filament-docs.navigation.group');
+        return app(FilamentDocsPlugin::class)->getNavigationGroup();
     }
 
     public static function getNavigationSort(): ?int

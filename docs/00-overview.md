@@ -4,16 +4,16 @@ title: Overview
 
 # Filament Docs Overview
 
-A comprehensive Filament admin panel integration for the AIArmada Docs package. Manage invoices, receipts, templates, sequences, and approval workflows directly from your Filament panel.
+A Filament admin panel integration for the AIArmada Docs package. It exposes resources, report pages, widgets, and secure PDF downloads for the underlying docs domain.
 
 ## Features
 
 ### Document Management
 
 - **Full CRUD** - Create, view, edit, delete documents
-- **Advanced Filtering** - By type, status, date range, overdue, customer
-- **Bulk Actions** - Generate PDFs, update status for multiple documents
-- **PDF Actions** - Generate, regenerate, and download PDFs
+- **Advanced Filtering** - By type, status, overdue, paid, PDF presence, and current month
+- **Bulk Actions** - Generate PDFs, mark as sent, and delete selected documents
+- **PDF Actions** - Generate and download PDFs
 - **Status Transitions** - Mark as sent, paid, cancelled with audit trail
 
 ### Templates
@@ -28,11 +28,11 @@ A comprehensive Filament admin panel integration for the AIArmada Docs package. 
 - **Number Sequences** - Configure automatic document numbering
 - **Format Tokens** - `{PREFIX}`, `{NUMBER}`, `{YYYY}`, `{YYMM}`, etc.
 - **Reset Frequencies** - Never, Daily, Monthly, Yearly
-- **Preview** - See next number before generating
+- **Preview** - See the next number after saving a sequence
 
 ### Email Templates
 
-- **Trigger-Based** - Different templates for send, reminder, overdue, paid
+- **Trigger-Based** - Different templates for send, due-soon reminder, overdue, paid, and created events
 - **Variable Substitution** - `{{doc_number}}`, `{{customer_name}}`, etc.
 - **Rich Content** - WYSIWYG editor for email body
 
@@ -40,7 +40,7 @@ A comprehensive Filament admin panel integration for the AIArmada Docs package. 
 
 - **Aging Report** - Accounts receivable aging by bucket
 - **Pending Approvals** - Approval queue for current user
-- **Stats Widget** - Total, draft, pending, paid, overdue counts
+- **Stats Widget** - Total, draft, pending/sent, paid, overdue counts
 - **Revenue Chart** - Revenue over time
 - **Status Breakdown** - Visual status distribution
 
@@ -70,11 +70,13 @@ A comprehensive Filament admin panel integration for the AIArmada Docs package. 
 
 | Widget | Purpose |
 |--------|---------|
-| `DocStatsWidget` | Overview stats (total, draft, pending, paid, overdue) |
-| `QuickActionsWidget` | Fast action buttons |
+| `DocStatsWidget` | Overview stats (total, draft, pending/sent, paid, overdue) |
+| `QuickActionsWidget` | New invoice, quotation, credit note, receipt, delivery note, proforma invoice, and aging report shortcuts |
 | `RecentDocumentsWidget` | Latest document list |
-| `RevenueChartWidget` | Revenue trend chart |
-| `StatusBreakdownWidget` | Status distribution pie/bar |
+| `RevenueChartWidget` | Paid revenue over the last 30 days |
+| `StatusBreakdownWidget` | Status distribution doughnut chart |
+
+The Filament package uses the docs state-cast status values consistently across tables, filters, badges, widgets, and exports so the UI matches the underlying `AIArmada\Docs\States\DocStatus` behavior.
 
 ## Relation Managers
 
@@ -97,15 +99,16 @@ A comprehensive Filament admin panel integration for the AIArmada Docs package. 
 
 ```php
 use AIArmada\FilamentDocs\FilamentDocsPlugin;
+use Filament\Panel;
 
 public function panel(Panel $panel): Panel
 {
     return $panel
         ->plugins([
             FilamentDocsPlugin::make()
-                ->navigationGroup('Billing')  // Optional: change navigation group
-                ->agingReportEnabled(true)    // Optional: enable/disable pages
-                ->docStatsWidgetEnabled(true) // Optional: enable/disable widgets
+                ->navigationGroup('Billing')
+                ->agingReportEnabled(true)
+                ->docStatsWidgetEnabled(true)
         ]);
 }
 ```

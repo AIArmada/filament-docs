@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace AIArmada\FilamentDocs\Actions;
 
 use AIArmada\Docs\Models\Doc;
-use AIArmada\Docs\Models\DocPayment;
-use AIArmada\Docs\States\DocStatus;
+use AIArmada\Docs\Services\DocService;
 use AIArmada\Docs\States\Overdue;
-use AIArmada\Docs\States\Paid;
 use AIArmada\Docs\States\PartiallyPaid;
 use AIArmada\Docs\States\Pending;
 use AIArmada\Docs\States\Sent;
+use AIArmada\FilamentDocs\Support\DocsOwnerScope;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
@@ -69,7 +68,7 @@ final class RecordPaymentAction
                 ->prefix($record->currency)
                 ->default($remaining)
                 ->maxValue($remaining)
-                ->helperText("Outstanding: {$record->currency} " . number_format($remaining, 2)),
+                ->helperText("Outstanding: {$record->currency} " . number_format($remaining, 2, '.', ',')),
 
             Select::make('payment_method')
                 ->label('Payment Method')
@@ -103,6 +102,8 @@ final class RecordPaymentAction
      */
     private static function recordPayment(Doc $record, array $data): void
     {
+        DocsOwnerScope::assertCanMutateDoc($record);
+
         $amount = (float) $data['amount'];
         $remaining = (float) $record->total - self::getTotalPaid($record);
 
@@ -118,10 +119,7 @@ final class RecordPaymentAction
             ]);
         }
 
-        DocPayment::create([
-            'doc_id' => $record->id,
-            'owner_type' => $record->owner_type,
-            'owner_id' => $record->owner_id,
+        app(DocService::class)->recordPayment($record, [
             'amount' => $amount,
             'currency' => $record->currency,
             'payment_method' => $data['payment_method'],
@@ -130,20 +128,9 @@ final class RecordPaymentAction
             'notes' => $data['notes'] ?? null,
         ]);
 
-        $newPaidAmount = self::getTotalPaid($record);
-
-        if ($newPaidAmount >= (float) $record->total) {
-            $record->status = new Paid($record);
-            $record->paid_at = $data['paid_at'];
-        } else {
-            $record->status = new PartiallyPaid($record);
-        }
-
-        $record->save();
-
         Notification::make()
             ->title('Payment Recorded')
-            ->body("{$record->currency} " . number_format((float) $data['amount'], 2) . ' payment recorded successfully.')
+            ->body("{$record->currency} " . number_format($amount, 2) . ' payment recorded successfully.')
             ->success()
             ->send();
     }

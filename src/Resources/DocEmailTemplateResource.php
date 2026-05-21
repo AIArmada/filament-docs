@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace AIArmada\FilamentDocs\Resources;
 
+use AIArmada\CommerceSupport\Support\FilamentPermission;
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Docs\Enums\DocType;
 use AIArmada\Docs\Models\DocEmailTemplate;
+use AIArmada\FilamentDocs\FilamentDocsPlugin;
 use AIArmada\FilamentDocs\Support\DocsOwnerScope;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -30,6 +32,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
 use UnitEnum;
@@ -47,6 +50,36 @@ final class DocEmailTemplateResource extends Resource
     protected static ?string $modelLabel = 'Email Template';
 
     protected static ?string $pluralModelLabel = 'Email Templates';
+
+    public static function canViewAny(): bool
+    {
+        return FilamentPermission::hasAbility('purchase.viewAny');
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return FilamentPermission::hasAbility('purchase.view');
+    }
+
+    public static function canCreate(): bool
+    {
+        return FilamentPermission::hasAnyAbility(['purchase.create', 'purchase.viewAny']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return FilamentPermission::hasAnyAbility(['purchase.update', 'purchase.viewAny']);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return FilamentPermission::hasAnyAbility(['purchase.delete', 'purchase.viewAny']);
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -77,6 +110,7 @@ final class DocEmailTemplateResource extends Resource
                                 Select::make('trigger')
                                     ->options([
                                         'send' => 'When document is sent',
+                                        'due_soon' => 'Upcoming due date reminder',
                                         'reminder' => 'Payment reminder',
                                         'overdue' => 'When overdue',
                                         'paid' => 'When paid',
@@ -161,6 +195,7 @@ final class DocEmailTemplateResource extends Resource
                 SelectFilter::make('trigger')
                     ->options([
                         'send' => 'When document is sent',
+                        'due_soon' => 'Upcoming due date reminder',
                         'reminder' => 'Payment reminder',
                         'overdue' => 'When overdue',
                         'paid' => 'When paid',
@@ -175,6 +210,8 @@ final class DocEmailTemplateResource extends Resource
                 Action::make('duplicate')
                     ->icon('heroicon-o-document-duplicate')
                     ->action(function (DocEmailTemplate $record): void {
+                        DocsOwnerScope::assertCanMutateRecord($record, 'Email template not found.');
+
                         $new = $record->replicate();
                         $new->name = $record->name . ' (Copy)';
                         $new->slug = $record->slug . '-copy-' . CarbonImmutable::now()->timestamp;
@@ -183,7 +220,18 @@ final class DocEmailTemplateResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    BulkAction::make('delete_selected')
+                        ->label('Delete Selected')
+                        ->icon(Heroicon::OutlinedTrash)
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->action(function (Collection $records): void {
+                            /** @var Collection<int|string, DocEmailTemplate> $records */
+                            $records->each(function (DocEmailTemplate $record): void {
+                                DocsOwnerScope::assertCanMutateRecord($record, 'Email template not found.');
+                                $record->delete();
+                            });
+                        }),
                 ]),
             ]);
     }
@@ -204,7 +252,7 @@ final class DocEmailTemplateResource extends Resource
 
     public static function getNavigationGroup(): string | UnitEnum | null
     {
-        return config('filament-docs.navigation.group');
+        return app(FilamentDocsPlugin::class)->getNavigationGroup();
     }
 
     public static function getNavigationSort(): ?int
@@ -236,15 +284,23 @@ final class DocEmailTemplateResource extends Resource
         $includeGlobal = (bool) config('docs.owner.include_global', false);
 
         if ($owner instanceof Model) {
-            $rule
-                ->where('owner_type', $owner->getMorphClass())
-                ->where('owner_id', (string) $owner->getKey());
-
-            if (! $includeGlobal) {
-                return $rule;
+            if ($includeGlobal) {
+                return $rule->where(function (\Illuminate\Database\Query\Builder $query) use ($owner): void {
+                    $query
+                        ->where(function (\Illuminate\Database\Query\Builder $ownerQuery) use ($owner): void {
+                            $ownerQuery
+                                ->where('owner_type', $owner->getMorphClass())
+                                ->where('owner_id', (string) $owner->getKey());
+                        })
+                        ->orWhere(function (\Illuminate\Database\Query\Builder $globalQuery): void {
+                            $globalQuery->whereNull('owner_type')->whereNull('owner_id');
+                        });
+                });
             }
 
-            return $rule;
+            return $rule
+                ->where('owner_type', $owner->getMorphClass())
+                ->where('owner_id', (string) $owner->getKey());
         }
 
         return $rule

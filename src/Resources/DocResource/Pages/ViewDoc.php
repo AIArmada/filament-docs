@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace AIArmada\FilamentDocs\Resources\DocResource\Pages;
 
-use AIArmada\Docs\Enums\DocStatus;
 use AIArmada\Docs\Models\Doc;
 use AIArmada\Docs\Services\DocService;
+use AIArmada\Docs\States\Cancelled;
+use AIArmada\Docs\States\Draft;
+use AIArmada\Docs\States\Paid;
+use AIArmada\Docs\States\Pending;
 use AIArmada\FilamentDocs\Resources\DocResource;
+use AIArmada\FilamentDocs\Support\DocsOwnerScope;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -31,6 +35,8 @@ final class ViewDoc extends ViewRecord
                 ->modalHeading('Generate PDF')
                 ->modalDescription('This will generate a new PDF for this document. Any existing PDF will be overwritten.')
                 ->action(function (Doc $record): void {
+                    DocsOwnerScope::assertCanMutateDoc($record);
+
                     $docService = app(DocService::class);
                     $docService->generatePdf($record, save: true);
 
@@ -53,9 +59,10 @@ final class ViewDoc extends ViewRecord
                     ->label('Mark as Sent')
                     ->icon(Heroicon::OutlinedPaperAirplane)
                     ->color('info')
-                    ->visible(fn (Doc $record): bool => in_array($record->status, [DocStatus::DRAFT, DocStatus::PENDING]))
+                    ->visible(fn (Doc $record): bool => self::canMarkAsSent($record))
                     ->requiresConfirmation()
                     ->action(function (Doc $record): void {
+                        DocsOwnerScope::assertCanMutateDoc($record);
                         $record->markAsSent();
                         Notification::make()->title('Document marked as sent')->success()->send();
                     }),
@@ -67,6 +74,7 @@ final class ViewDoc extends ViewRecord
                     ->visible(fn (Doc $record): bool => $record->canBePaid())
                     ->requiresConfirmation()
                     ->action(function (Doc $record): void {
+                        DocsOwnerScope::assertCanMutateDoc($record);
                         $record->markAsPaid();
                         Notification::make()->title('Document marked as paid')->success()->send();
                     }),
@@ -75,11 +83,12 @@ final class ViewDoc extends ViewRecord
                     ->label('Cancel Document')
                     ->icon(Heroicon::OutlinedXCircle)
                     ->color('danger')
-                    ->visible(fn (Doc $record): bool => $record->status !== DocStatus::PAID && $record->status !== DocStatus::CANCELLED)
+                    ->visible(fn (Doc $record): bool => self::canCancel($record))
                     ->requiresConfirmation()
                     ->modalHeading('Cancel Document')
                     ->modalDescription('Are you sure you want to cancel this document? This action cannot be undone.')
                     ->action(function (Doc $record): void {
+                        DocsOwnerScope::assertCanMutateDoc($record);
                         $record->cancel();
                         Notification::make()->title('Document cancelled')->warning()->send();
                     }),
@@ -88,8 +97,25 @@ final class ViewDoc extends ViewRecord
                 ->icon(Heroicon::OutlinedEllipsisVertical)
                 ->color('gray'),
 
-            Actions\DeleteAction::make()
-                ->icon(Heroicon::OutlinedTrash),
+            Actions\Action::make('delete')
+                ->label('Delete')
+                ->icon(Heroicon::OutlinedTrash)
+                ->color('danger')
+                ->requiresConfirmation()
+                ->action(function (Doc $record): void {
+                    DocsOwnerScope::assertCanMutateDoc($record);
+                    $record->delete();
+                }),
         ];
+    }
+
+    private static function canMarkAsSent(Doc $record): bool
+    {
+        return $record->status->equals(Draft::class) || $record->status->equals(Pending::class);
+    }
+
+    private static function canCancel(Doc $record): bool
+    {
+        return ! $record->status->equals(Paid::class) && ! $record->status->equals(Cancelled::class);
     }
 }
