@@ -9,7 +9,7 @@ title: Installation
 | Requirement | Version |
 |-------------|---------|
 | PHP | 8.4+ |
-| Laravel | 12.0+ |
+| Laravel | 13.0+ |
 | Filament | 5.0+ |
 | aiarmada/docs | Required |
 
@@ -93,5 +93,5 @@ If migrations fail, confirm `aiarmada/docs` is installed and then run `php artis
 
 ## Next Steps
 
-- [Resources](02-resources.md) - Learn about the shipped resources
 - [Configuration](03-configuration.md) - Customize navigation and behavior
+- [Usage](04-usage.md) - Learn about the shipped resources and actions

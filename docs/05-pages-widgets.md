@@ -4,6 +4,8 @@ title: Pages & Widgets
 
 # Pages & Widgets
 
+This page covers the non-resource surfaces shipped by the plugin.
+
 ## Pages
 
 ### Aging Report Page

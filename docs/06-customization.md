@@ -4,6 +4,8 @@ title: Customization
 
 # Customization
 
+Use this page after you understand the shipped resources and pages and need to swap or extend them safely.
+
 This package is easiest to customize by swapping resource classes through the plugin and reusing the package's schemas, tables, and actions where helpful.
 
 ## Swap Resource Classes

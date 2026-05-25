@@ -1,8 +1,8 @@
 ---
-title: Resources
+title: Usage
 ---
 
-# Resources
+# Usage
 
 ## DocResource
 
