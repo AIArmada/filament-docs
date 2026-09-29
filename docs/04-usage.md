@@ -39,13 +39,12 @@ The form is template-aware:
 - Has PDF
 - This Month
 
-### Header and Toolbar Actions
+### Toolbar Actions
 
-- `Create` in the page header
-- `Export` in the table header, using the built-in Filament exporter
+- `Export` using the built-in Filament exporter
 - `Generate PDFs` in bulk (queued via `GenerateDocPdfsJob` in chunks of 25; selections over 500 are refused)
 - `Mark as Sent` in bulk (only eligible documents transition; the notification reports marked/skipped counts)
-- `Delete Selected` in bulk
+- `Delete Selected`
 
 ### Record Actions From the List
 
@@ -95,7 +94,7 @@ Each resource gates every action on its own dedicated ability via `DocPermission
 | Aging report | `document.viewAny` |
 | Pending approvals | `document_approval.viewAny`, plus `document_approval.approve` to act on unassigned approvals |
 
-> **warning**
+> [!WARNING]
 > Breaking change: these replace the former shared `purchase.*` abilities. Hosts must grant the new `document*` abilities; legacy `purchase.*` grants no longer unlock any documents UI.
 
 ---
