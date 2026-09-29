@@ -38,6 +38,7 @@ public function panel(Panel $panel): Panel
 | Method | Description | Default |
 |--------|-------------|---------|
 | `navigationGroup(string)` | Set the navigation group | `'Documents'` from config |
+| `navigationSort(int)` | Set a single sort applied by the plugin | `null` (each surface sorts itself from config) |
 | `docResource(string)` | Use a custom `DocResource` class | `DocResource::class` |
 | `docTemplateResource(string)` | Use a custom `DocTemplateResource` class | `DocTemplateResource::class` |
 | `docSequenceResource(string)` | Use a custom `DocSequenceResource` class | `DocSequenceResource::class` |
